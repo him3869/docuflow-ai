@@ -1,0 +1,11 @@
+Vendor Payments & Software Spend Policy (Effective 2026)
+
+1. Auto-Approval Limits:
+- Routine software subscriptions and vendor invoices up to INR 50,000 are eligible for standard processing when an approved purchase order is attached.
+- Any vendor invoice, contract renewal, or software purchase above INR 50,000 requires explicit Finance Director or CFO approval before payment release.
+
+2. Restricted Access:
+- Bank account routing details, tax withholding schedules, and vendor credit limits are restricted to the finance role.
+
+3. Urgent Exception Rule:
+- Even if a request is marked urgent by a department lead, payments exceeding INR 50,000 still require documented human sign-off.

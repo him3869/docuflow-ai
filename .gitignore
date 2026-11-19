@@ -1,0 +1,21 @@
+# Environments & secrets
+.env
+.env.*
+!.env.example
+
+# Python & virtual environment
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# OS & editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Optional: ignore local uploaded policy files if they contain sensitive/test data
+# data/policies/*
+# !data/policies/.gitkeep

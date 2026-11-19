@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>DocuFlow AI — Policy &amp; Query Console</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 1020px; margin: 2rem auto; padding: 0 1rem; background: #f8fafc; color: #0f172a; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem; }
+    label { display: block; font-size: 0.875rem; font-weight: 600; margin-top: 0.7rem; }
+    input, textarea, select { width: 100%; box-sizing: border-box; padding: 0.55rem; margin-top: 0.25rem; border: 1px solid #cbd5e1; border-radius: 6px; }
+    button { margin-top: 0.85rem; padding: 0.55rem 1rem; border: none; border-radius: 6px; background: #0f172a; color: #fff; cursor: pointer; font-weight: 600; }
+    button.danger { background: #b91c1c; }
+    button.secondary { background: #334155; }
+    pre { background: #0f172a; color: #e2e8f0; padding: 0.9rem; border-radius: 8px; overflow-x: auto; font-size: 0.84rem; }
+    .badge { display: inline-block; padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
+    .warn { background: #fef3c7; color: #92400e; }
+    .ok { background: #dcfce7; color: #166534; }
+  </style>
+</head>
+<body>
+  <h1>DocuFlow AI</h1>
+  <p>Store policy files in <code>data/policies/</code>, ingest them into PostgreSQL, delete outdated records, and query with RBAC + approval guardrails.</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>1. Ingest Policy Text or File</h2>
+      <label>Document ID</label>
+      <input id="docId" placeholder="POL-FIN-014" />
+      <label>Title</label>
+      <input id="docTitle" placeholder="Vendor Invoice Approval Policy" />
+      <label>Allowed Roles (comma-separated)</label>
+      <input id="docRoles" value="finance" />
+      <label>Sensitivity</label>
+      <select id="docSensitivity">
+        <option value="internal">internal</option>
+        <option value="confidential">confidential</option>
+      </select>
+      <label>Policy Content</label>
+      <textarea id="docContent" rows="4" placeholder="Paste policy text here..."></textarea>
+      <button onclick="ingestText()">Save &amp; Ingest Text</button>
+
+      <hr style="margin: 1.2rem 0; border: none; border-top: 1px solid #e2e8f0;" />
+      <label>Upload Policy File (.txt or .md)</label>
+      <input type="file" id="policyFile" accept=".txt,.md" />
+      <button class="secondary" onclick="uploadFile()">Upload &amp; Ingest File</button>
+    </div>
+
+    <div class="card">
+      <h2>2. Query Policies</h2>
+      <label>User Roles (comma-separated)</label>
+      <input id="queryRoles" value="finance" />
+      <label>Question / Request</label>
+      <textarea id="queryText" rows="4" placeholder="What is the approval rule for an INR 75,000 vendor invoice?"></textarea>
+      <button onclick="runQuery()">Run Query</button>
+      <div id="queryBadge" style="margin-top: 0.9rem;"></div>
+      <pre id="queryOut">Query result will appear here...</pre>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3. Server Policy Sources &amp; Ingested Documents</h2>
+    <button class="secondary" onclick="loadDocs()">Refresh List</button>
+    <div style="margin-top: 0.75rem; display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+      <input id="deleteDocId" placeholder="document_id to delete (e.g. POL-FIN-014)" style="max-width: 300px; margin-top: 0;" />
+      <label style="margin-top: 0; font-weight: 500; display: flex; align-items: center; gap: 0.35rem;">
+        <input type="checkbox" id="removeFileChk" style="width: auto; margin-top: 0;" />
+        Also remove source file
+      </label>
+      <button class="danger" style="margin-top: 0;" onclick="deleteDoc()">Delete Document</button>
+    </div>
+    <pre id="docsOut" style="margin-top: 0.85rem;">Loading...</pre>
+  </div>
+
+  <script>
+    async function ingestText() {
+      const payload = {
+        document_id: document.getElementById('docId').value.trim(),
+        title: document.getElementById('docTitle').value.trim(),
+        content: document.getElementById('docContent').value,
+        department_access: document.getElementById('docRoles').value.split(',').map(s => s.trim()).filter(Boolean),
+        sensitivity_level: document.getElementById('docSensitivity').value
+      };
+      const res = await fetch('/api/v1/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      alert(JSON.stringify(await res.json(), null, 2));
+      loadDocs();
+    }
+
+    async function uploadFile() {
+      const fi = document.getElementById('policyFile');
+      if (!fi.files.length) return alert('Select a .txt or .md file first.');
+      const fd = new FormData();
+      fd.append('file', fi.files[0]);
+      fd.append('document_id', document.getElementById('docId').value.trim());
+      fd.append('title', document.getElementById('docTitle').value.trim());
+      fd.append('department_access', document.getElementById('docRoles').value);
+      fd.append('sensitivity_level', document.getElementById('docSensitivity').value);
+      const res = await fetch('/api/v1/ingest/file', { method: 'POST', body: fd });
+      alert(JSON.stringify(await res.json(), null, 2));
+      loadDocs();
+    }
+
+    async function runQuery() {
+      const payload = {
+        query_text: document.getElementById('queryText').value,
+        user_roles: document.getElementById('queryRoles').value.split(',').map(s => s.trim()).filter(Boolean)
+      };
+      const res = await fetch('/api/v1/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      const cls = data.requires_human_approval ? 'badge warn' : 'badge ok';
+      const txt = data.requires_human_approval ? 'Human Approval Required' : 'No Manual Escalation Flagged';
+      document.getElementById('queryBadge').innerHTML = `<span class="${cls}">${txt}</span>`;
+      document.getElementById('queryOut').textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function loadDocs() {
+      const res = await fetch('/api/v1/documents');
+      document.getElementById('docsOut').textContent = JSON.stringify(await res.json(), null, 2);
+    }
+
+    async function deleteDoc() {
+      const docId = document.getElementById('deleteDocId').value.trim();
+      if (!docId) return alert('Enter a document_id first.');
+      const removeFile = document.getElementById('removeFileChk').checked;
+      const res = await fetch(`/api/v1/documents/${encodeURIComponent(docId)}?remove_file=${removeFile}`, {
+        method: 'DELETE'
+      });
+      alert(JSON.stringify(await res.json(), null, 2));
+      loadDocs();
+    }
+
+    loadDocs();
+  </script>
+</body>
+</html>
